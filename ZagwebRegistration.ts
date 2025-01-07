@@ -20,6 +20,17 @@ export class ZagwebRegistration {
    */
   uniqueSessionId: string;
 
+
+  /**
+   * The current mode of the session. This is used used by the backend to determine
+   * what kind of data to return.
+   * 
+   * plan: https://xe.gonzaga.edu/StudentRegistrationSsb/ssb/term/termSelection?mode=plan
+   * registration: https://xe.gonzaga.edu/StudentRegistrationSsb/ssb/term/termSelection?mode=registration
+   * search: https://xe.gonzaga.edu/StudentRegistrationSsb/ssb/term/termSelection?mode=search
+   */
+  mode: "registration" | "search" | "plan" = "search";
+
   constructor(authCookies: string) {
     this.authCookies = authCookies;
     this.uniqueSessionId = this.generateUniqueSessionId();
@@ -130,6 +141,9 @@ export class ZagwebRegistration {
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
       },
     });
+    
+
+    this.mode = mode;
   }
 
   /**
@@ -173,7 +187,13 @@ export class ZagwebRegistration {
    * @returns A list of available terms
    */
   async getTerms(): Promise<TermsResponse> {
-    return await this.makeRequest(`/plan/getTerms?offset=1&max=10`, {}, "json");
+    let searchEndpoint = this.mode as string;
+
+    if (this.mode === "search") {
+      searchEndpoint = "classSearch";
+    }
+
+    return await this.makeRequest(`/${searchEndpoint}/getTerms?offset=1&max=10`, {}, "json");
   }
 
   /**

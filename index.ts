@@ -1,38 +1,74 @@
-import "dotenv/config";
 import { ZagwebRegistration } from "./ZagwebRegistration.ts";
 
-const cookieString = `JSESSIONID=${process.env.JSESSIONID}; X-Oracle-BMC-LBS-Route=${process.env["X-Oracle-BMC-LBS-Route"]};`;
-const zagRegis = new ZagwebRegistration(cookieString);
+// No need to provide the cookie string since we're assuming the user is already logged in
+const zagwebRegistration = new ZagwebRegistration("");
+// Get a list of terms
+const terms = await zagwebRegistration.getTerms();
 
-const terms = await zagRegis.getTerms();
-// Let's assume 202520 is one of the term IDs that gets returned
-console.log(terms);
+// Prompt the user to select a term
+const promptText = terms
+  .map((term, index) => `${index + 1}. ${term.description}`)
+  .join("\n");
+let promptResult = prompt(promptText);
 
-// Then change the mode to the appropriate term
-await zagRegis.changeMode("202520", "search");
+while (promptResult === null) {
+  promptResult = prompt(promptText);
+}
 
+const termIndex = parseInt(promptResult) - 1;
+const selectedTerm = terms[termIndex];
+
+// The term code of the selected term
+const termCode = selectedTerm.code;
+
+// Change mode
+await zagwebRegistration.changeMode(termCode, "search");
 
 // Get all the courses that get offered by the department
-const allCourses = new Set(
-  (
-    await zagRegis.getCourses({
-      txt_term: "202520",
-      txt_subject: "CPSC",
-      pageMaxSize: "100",
-    })
-  ).data.map((course) => course.courseNumber)
+const allCoursesResponse = await zagwebRegistration.getCourses({
+  txt_term: termCode,
+  txt_subject: "CPSC",
+  pageMaxSize: "100",
+});
+
+const allCourses = Object.fromEntries(
+  allCoursesResponse.data.map((course) => {
+    return [course.courseNumber, course.courseTitle];
+  })
 );
 
 // Get all the courses that are being offered this term
-const coursesBeingOffered = new Set(
-  (
-    await zagRegis.getClasses({
-      txt_term: "202520",
-      txt_subject: "CPSC",
-      pageMaxSize: "100",
-    })
-  ).data.map((course) => course.courseNumber)
+const coursesBeingOfferedResponse = await zagwebRegistration.getClasses({
+  txt_term: "202520",
+  txt_subject: "CPSC",
+  pageMaxSize: "100",
+});
+
+const coursesBeingOffered = Object.fromEntries(
+  coursesBeingOfferedResponse.data.map((course) => {
+    return [course.courseNumber, course.courseTitle];
+  })
 );
 
-console.log(coursesBeingOffered);
-console.log(allCourses.difference(coursesBeingOffered));
+const result = {
+  allCourses,
+  coursesBeingOffered,
+};
+
+const resultBlob = new Blob([JSON.stringify(result)], {
+  type: "application/json",
+});
+const blobURL = URL.createObjectURL(resultBlob);
+
+// Create an anchor element to download the file
+const anchorElement = document.createElement("a");
+anchorElement.href = blobURL;
+anchorElement.download = "result.json";
+
+// Append the anchor element to the body and click it to download the file
+document.body.appendChild(anchorElement);
+anchorElement.click();
+
+// Clean up
+anchorElement.remove();
+URL.revokeObjectURL(blobURL);
