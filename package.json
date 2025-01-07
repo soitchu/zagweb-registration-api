@@ -1,5 +1,8 @@
 {
   "type": "module",
+  "scripts": {
+    "bundle": "bun build src/index.ts --target=\"browser\" --outdir=\"./dist/\""
+  },
   "dependencies": {
     "dotenv": "^16.4.7"
   },

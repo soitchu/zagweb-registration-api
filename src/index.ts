@@ -39,7 +39,7 @@ const allCourses = Object.fromEntries(
 
 // Get all the courses that are being offered this term
 const coursesBeingOfferedResponse = await zagwebRegistration.getClasses({
-  txt_term: "202520",
+  txt_term: termCode,
   txt_subject: "CPSC",
   pageMaxSize: "100",
 });
