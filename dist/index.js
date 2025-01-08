@@ -106,45 +106,57 @@ class ZagwebRegistration {
 }
 
 // src/index.ts
-var zagwebRegistration = new ZagwebRegistration("");
-var terms = await zagwebRegistration.getTerms();
-var promptText = terms.map((term, index) => `${index + 1}. ${term.description}`).join("\n");
-var promptResult = prompt(promptText);
-while (promptResult === null) {
-  promptResult = prompt(promptText);
+async function init() {
+  const zagwebRegistration = new ZagwebRegistration("");
+  console.log("Getting terms...");
+  const terms = await zagwebRegistration.getTerms();
+  const promptText = terms.map((term, index) => `${index + 1}. ${term.description}`).join("\n");
+  let promptResult = prompt(promptText);
+  while (promptResult === null) {
+    promptResult = prompt(promptText);
+  }
+  const termIndex = parseInt(promptResult) - 1;
+  const selectedTerm = terms[termIndex];
+  const termCode = selectedTerm.code;
+  const termName = selectedTerm.description;
+  console.log("Changing mode to search...");
+  await zagwebRegistration.changeMode(termCode, "search");
+  console.log("Getting all courses...");
+  const allCoursesResponse = await zagwebRegistration.getCourses({
+    txt_term: termCode,
+    txt_subject: "CPSC",
+    pageMaxSize: "100"
+  });
+  const allCourses = Object.fromEntries(allCoursesResponse.data.map((course) => {
+    return [course.courseNumber, course.courseTitle.replaceAll("&amp;", "&")];
+  }));
+  console.log(`Getting courses being offered in ${termName}...`);
+  const coursesBeingOfferedResponse = await zagwebRegistration.getClasses({
+    txt_term: termCode,
+    txt_subject: "CPSC",
+    pageMaxSize: "100"
+  });
+  const coursesBeingOffered = Object.fromEntries(coursesBeingOfferedResponse.data.map((course) => {
+    return [course.courseNumber, course.courseTitle.replaceAll("&amp;", "&")];
+  }));
+  const result = {
+    allCourses,
+    coursesBeingOffered,
+    term: termName
+  };
+  console.log("Downloading result...");
+  const resultBlob = new Blob([JSON.stringify(result)], {
+    type: "application/json"
+  });
+  const blobURL = URL.createObjectURL(resultBlob);
+  const anchorElement = document.createElement("a");
+  anchorElement.href = blobURL;
+  anchorElement.download = "result.json";
+  document.body.appendChild(anchorElement);
+  anchorElement.click();
+  anchorElement.remove();
+  URL.revokeObjectURL(blobURL);
 }
-var termIndex = parseInt(promptResult) - 1;
-var selectedTerm = terms[termIndex];
-var termCode = selectedTerm.code;
-await zagwebRegistration.changeMode(termCode, "search");
-var allCoursesResponse = await zagwebRegistration.getCourses({
-  txt_term: termCode,
-  txt_subject: "CPSC",
-  pageMaxSize: "100"
-});
-var allCourses = Object.fromEntries(allCoursesResponse.data.map((course) => {
-  return [course.courseNumber, course.courseTitle];
-}));
-var coursesBeingOfferedResponse = await zagwebRegistration.getClasses({
-  txt_term: termCode,
-  txt_subject: "CPSC",
-  pageMaxSize: "100"
-});
-var coursesBeingOffered = Object.fromEntries(coursesBeingOfferedResponse.data.map((course) => {
-  return [course.courseNumber, course.courseTitle];
-}));
-var result = {
-  allCourses,
-  coursesBeingOffered
-};
-var resultBlob = new Blob([JSON.stringify(result)], {
-  type: "application/json"
-});
-var blobURL = URL.createObjectURL(resultBlob);
-var anchorElement = document.createElement("a");
-anchorElement.href = blobURL;
-anchorElement.download = "result.json";
-document.body.appendChild(anchorElement);
-anchorElement.click();
-anchorElement.remove();
-URL.revokeObjectURL(blobURL);
+init().then(() => {
+  console.log("Done!");
+}).catch(console.error);
